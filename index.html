@@ -1,12 +1,10 @@
-<!-- index.html 代码，基本保持不变，只改了 API 地址 -->
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Telegraph 图床 | CF版</title>
+    <title>Telegraph 图床 | TG存储版</title>
     <style>
-        /* ... 保持之前的 CSS 样式不变 ... */
         :root { --primary-color: #0297f8; --bg-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%); --glass-bg: rgba(255, 255, 255, 0.9); --shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37); }
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
         body { height: 100vh; display: flex; justify-content: center; align-items: center; background: var(--bg-gradient); overflow: hidden; }
@@ -44,7 +42,7 @@
             <svg class="icon" viewBox="0 0 1024 1024"><path d="M512 64a448 448 0 1 1-448 448 448 448 0 0 1 448-448m0-64a512 512 0 1 0 512 512 512 512 0 0 0-512-512z"/><path d="M512 256a32 32 0 0 0-32 32v256a32 32 0 0 0 64 0V288a32 32 0 0 0-32-32z"/><path d="M352 576h320a32 32 0 0 0 0-64H352a32 32 0 0 0 0 64z"/><path d="M512 704m-32 0a32 32 0 1 0 64 0 32 32 0 1 0-64 0Z"/><path d="M422.4 704l-94.72-143.36c-15.36-23.04-46.08-30.72-71.68-15.36l-15.36 15.36-130.56 204.8c-12.8 25.6-7.68 56.32 17.92 71.68h256c28.16 0 51.2-23.04 51.2-51.2 0-7.68-2.56-15.36-5.12-23.04l-33.28-66.56z" fill="#A5C8F4" opacity="0.6"/></svg>
             <div class="upload-text">点击、拖拽或粘贴(Ctrl+V)图片到此处</div>
             <span class="btn">选择图片</span>
-            <input type="file" id="fileInput" accept="image/jpeg, image/png, image/gif">
+            <input type="file" id="fileInput" accept="image/jpeg, image/png, image/gif, video/mp4, audio/mp3">
         </div>
         <div class="status-msg" id="statusMsg"></div>
         <div class="result-area" id="resultArea">
@@ -63,7 +61,6 @@
         const urlInput = document.getElementById('urlInput');
         const copyBtn = document.getElementById('copyBtn');
 
-        // ==== 修改重点：指向当前的 Cloudflare Function 路径 ====
         const UPLOAD_API = '/upload'; 
 
         dropZone.addEventListener('click', () => fileInput.click());
@@ -76,7 +73,7 @@
         document.addEventListener('paste', (e) => {
             const items = e.clipboardData.items;
             for (let i = 0; i < items.length; i++) {
-                if (items[i].type.indexOf('image') !== -1) { handleFiles([items[i].getAsFile()]); break; }
+                if (items[i].kind === 'file') { handleFiles([items[i].getAsFile()]); break; }
             }
         });
         copyBtn.addEventListener('click', () => {
@@ -88,7 +85,6 @@
         function handleFiles(files) {
             if (files.length === 0) return;
             const file = files[0];
-            if (!file.type.startsWith('image/')) { showStatus('只能上传图片文件', 'error'); return; }
             uploadFile(file);
         }
 
@@ -101,12 +97,20 @@
             fetch(UPLOAD_API, { method: 'POST', body: formData })
             .then(r => r.json())
             .then(data => {
-                if (data.status === 'success') {
+                // ==== 关键修改处 ====
+                // 你的后端返回格式是数组: [{"src": "/file/..."}]
+                if (Array.isArray(data) && data[0].src) {
                     showStatus('上传成功！', 'success');
-                    urlInput.value = data.url;
+                    // 自动拼接当前域名，生成完整链接
+                    urlInput.value = window.location.origin + data[0].src;
                     resultArea.classList.add('show');
-                } else {
-                    throw new Error(data.message || '上传失败');
+                } 
+                // 兼容另一种可能的错误返回 {error: "message"}
+                else if (data.error) {
+                    throw new Error(data.error);
+                } 
+                else {
+                    throw new Error('未知返回格式');
                 }
             })
             .catch(err => {
