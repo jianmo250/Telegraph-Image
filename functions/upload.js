@@ -1,5 +1,3 @@
-// functions/upload.js
-
 export async function onRequestPost(context) {
     const { request, env } = context;
 
@@ -18,19 +16,25 @@ export async function onRequestPost(context) {
         const telegramFormData = new FormData();
         telegramFormData.append("chat_id", env.TG_Chat_ID);
 
-        // 根据文件类型选择 API
-        let apiEndpoint = 'sendDocument'; // 默认 fallback
-        if (uploadFile.type.startsWith('image/')) {
-            telegramFormData.append("photo", uploadFile);
-            apiEndpoint = 'sendPhoto';
-        } else if (uploadFile.type.startsWith('video/')) {
-            telegramFormData.append("video", uploadFile);
-            apiEndpoint = 'sendVideo';
+        // ==== 修改重点 ====
+        // 即使是图片，也强制使用 sendDocument，这样 Telegram 才会保存原图不压缩
+        let apiEndpoint = 'sendDocument'; 
+        
+        // 注意：这里把 key 统一设为 document，而不是 photo
+        telegramFormData.append("document", uploadFile);
+
+        // 如果是视频或音频，还是可以用专用接口（视频通常也会被压缩，但 sendVideo 支持流式）
+        // 如果你想视频也不压缩，也可以全部统统走 sendDocument
+        // 下面保留了视频和音频的判断，但你可以根据需要注释掉，让所有文件都走 document
+        if (uploadFile.type.startsWith('video/')) {
+             // 视频如果走 sendVideo 也会被压缩，想原画就用下面的 sendDocument
+             // telegramFormData.delete("document");
+             // telegramFormData.append("video", uploadFile);
+             // apiEndpoint = 'sendVideo';
         } else if (uploadFile.type.startsWith('audio/')) {
-            telegramFormData.append("audio", uploadFile);
-            apiEndpoint = 'sendAudio';
-        } else {
-            telegramFormData.append("document", uploadFile);
+             telegramFormData.delete("document");
+             telegramFormData.append("audio", uploadFile);
+             apiEndpoint = 'sendAudio';
         }
 
         // 发送给 Telegram
@@ -46,8 +50,7 @@ export async function onRequestPost(context) {
             throw new Error('Failed to get file ID from Telegram response');
         }
 
-        // === 关键：写入 Cloudflare KV 数据库 ===
-        // 如果你没有绑定 KV，这一步会跳过，但建议绑定以支持文件名记录
+        // 写入 KV (如果绑定了)
         if (env.img_url) {
             await env.img_url.put(`${fileId}.${fileExtension}`, "", {
                 metadata: {
@@ -59,8 +62,6 @@ export async function onRequestPost(context) {
             });
         }
 
-        // 返回前端需要的格式
-        // 这里的路径 /file/xxx 对应我们将要创建的下载函数
         return new Response(
             JSON.stringify([{ 'src': `/file/${fileId}.${fileExtension}` }]),
             {
@@ -82,13 +83,14 @@ function getFileId(response) {
     if (!response.ok || !response.result) return null;
     const res = response.result;
     
-    // 图片通常有多个尺寸，取最大的那个
-    if (res.photo) {
-        return res.photo[res.photo.length - 1].file_id;
-    }
+    // 优先检查 document，因为我们现在主要用它
     if (res.document) return res.document.file_id;
+    
+    // 兼容其他类型
+    if (res.photo) return res.photo[res.photo.length - 1].file_id;
     if (res.video) return res.video.file_id;
     if (res.audio) return res.audio.file_id;
+    
     return null;
 }
 
