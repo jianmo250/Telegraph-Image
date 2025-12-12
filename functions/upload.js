@@ -19,12 +19,9 @@ export async function onRequestPost(context) {
         // ==== 修改重点 ====
         // 即使是图片，也强制使用 sendDocument，这样 Telegram 才会保存原图不压缩
         let apiEndpoint = 'sendDocument'; 
-        
+        // 【修改这行】显式传入文件名，防止 Telegram 存成无后缀文件
+        telegramFormData.append("document", uploadFile, fileName); 
 
-// 【修改这行】显式传入文件名，防止 Telegram 存成无后缀文件
-telegramFormData.append("document", uploadFile, fileName); 
-
-// ... 之后的代码 ...
 
         // 如果是视频或音频，还是可以用专用接口（视频通常也会被压缩，但 sendVideo 支持流式）
         // 如果你想视频也不压缩，也可以全部统统走 sendDocument
