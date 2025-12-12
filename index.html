@@ -1,167 +1,52 @@
+<!-- index.html 代码，基本保持不变，只改了 API 地址 -->
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Telegraph 图床 | 极简版</title>
+    <title>Telegraph 图床 | CF版</title>
     <style>
-        :root {
-            --primary-color: #0297f8;
-            --bg-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            --glass-bg: rgba(255, 255, 255, 0.9);
-            --shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
-        }
-
+        /* ... 保持之前的 CSS 样式不变 ... */
+        :root { --primary-color: #0297f8; --bg-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%); --glass-bg: rgba(255, 255, 255, 0.9); --shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37); }
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
-        
-        body {
-            height: 100vh;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            background: var(--bg-gradient);
-            overflow: hidden;
-        }
-
-        /* 动态背景动画 */
-        .bg-animation {
-            position: absolute;
-            top: 0; left: 0; width: 100%; height: 100%;
-            z-index: -1;
-            background: linear-gradient(-45deg, #ee7752, #e73c7e, #23a6d5, #23d5ab);
-            background-size: 400% 400%;
-            animation: gradientBG 15s ease infinite;
-        }
-
-        @keyframes gradientBG {
-            0% { background-position: 0% 50%; }
-            50% { background-position: 100% 50%; }
-            100% { background-position: 0% 50%; }
-        }
-
-        .container {
-            width: 100%;
-            max-width: 400px;
-            padding: 30px;
-            background: var(--glass-bg);
-            backdrop-filter: blur(8px);
-            border-radius: 16px;
-            box-shadow: var(--shadow);
-            text-align: center;
-            transition: transform 0.3s ease;
-        }
-
+        body { height: 100vh; display: flex; justify-content: center; align-items: center; background: var(--bg-gradient); overflow: hidden; }
+        .bg-animation { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: -1; background: linear-gradient(-45deg, #ee7752, #e73c7e, #23a6d5, #23d5ab); background-size: 400% 400%; animation: gradientBG 15s ease infinite; }
+        @keyframes gradientBG { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
+        .container { width: 100%; max-width: 400px; padding: 30px; background: var(--glass-bg); backdrop-filter: blur(8px); border-radius: 16px; box-shadow: var(--shadow); text-align: center; transition: transform 0.3s ease; }
         .container:hover { transform: translateY(-5px); }
-
         h1 { color: #333; margin-bottom: 20px; font-size: 24px; font-weight: 700; }
-
-        .upload-area {
-            border: 2px dashed #cbd5e0;
-            border-radius: 12px;
-            padding: 40px 20px;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            position: relative;
-            background: #fafafa;
-        }
-
-        .upload-area:hover, .upload-area.dragover {
-            border-color: var(--primary-color);
-            background: #ebf8ff;
-        }
-
+        .upload-area { border: 2px dashed #cbd5e0; border-radius: 12px; padding: 40px 20px; cursor: pointer; transition: all 0.3s ease; position: relative; background: #fafafa; }
+        .upload-area:hover, .upload-area.dragover { border-color: var(--primary-color); background: #ebf8ff; }
         .icon { width: 64px; height: 64px; fill: var(--primary-color); margin-bottom: 15px; }
-        
         .upload-text { color: #718096; font-size: 14px; margin-bottom: 10px; }
-        
-        .btn {
-            display: inline-block;
-            padding: 8px 24px;
-            background: var(--primary-color);
-            color: white;
-            border-radius: 20px;
-            font-size: 14px;
-            font-weight: 600;
-            transition: opacity 0.2s;
-        }
+        .btn { display: inline-block; padding: 8px 24px; background: var(--primary-color); color: white; border-radius: 20px; font-size: 14px; font-weight: 600; transition: opacity 0.2s; }
         .btn:hover { opacity: 0.9; }
-
         #fileInput { display: none; }
-
-        /* 结果展示区 */
         .result-area { margin-top: 20px; display: none; }
         .result-area.show { display: block; }
-
-        .url-box {
-            display: flex;
-            border: 1px solid #e2e8f0;
-            border-radius: 8px;
-            overflow: hidden;
-            margin-top: 10px;
-        }
-
-        .url-input {
-            flex: 1;
-            border: none;
-            padding: 10px;
-            font-size: 12px;
-            color: #4a5568;
-            background: #fff;
-            outline: none;
-        }
-
-        .copy-btn {
-            background: #edf2f7;
-            border: none;
-            padding: 0 15px;
-            cursor: pointer;
-            color: #4a5568;
-            border-left: 1px solid #e2e8f0;
-            transition: background 0.2s;
-        }
+        .url-box { display: flex; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; margin-top: 10px; }
+        .url-input { flex: 1; border: none; padding: 10px; font-size: 12px; color: #4a5568; background: #fff; outline: none; }
+        .copy-btn { background: #edf2f7; border: none; padding: 0 15px; cursor: pointer; color: #4a5568; border-left: 1px solid #e2e8f0; transition: background 0.2s; }
         .copy-btn:hover { background: #e2e8f0; }
-
         .status-msg { margin-top: 15px; font-size: 13px; min-height: 20px; }
         .success { color: #38a169; }
         .error { color: #e53e3e; }
         .loading { color: var(--primary-color); }
-
-        /* Loading 动画 */
-        .spinner {
-            display: inline-block;
-            width: 20px; height: 20px;
-            border: 3px solid rgba(2, 151, 248, 0.3);
-            border-radius: 50%;
-            border-top-color: var(--primary-color);
-            animation: spin 1s ease-in-out infinite;
-            vertical-align: middle; margin-right: 5px;
-        }
+        .spinner { display: inline-block; width: 20px; height: 20px; border: 3px solid rgba(2, 151, 248, 0.3); border-radius: 50%; border-top-color: var(--primary-color); animation: spin 1s ease-in-out infinite; vertical-align: middle; margin-right: 5px; }
         @keyframes spin { to { transform: rotate(360deg); } }
-
     </style>
 </head>
 <body>
-
     <div class="bg-animation"></div>
-
     <div class="container">
         <h1>Telegraph 图床</h1>
-        
         <div class="upload-area" id="dropZone">
-            <svg class="icon" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
-                <path d="M512 64a448 448 0 1 1-448 448 448 448 0 0 1 448-448m0-64a512 512 0 1 0 512 512 512 512 0 0 0-512-512z"/>
-                <path d="M512 256a32 32 0 0 0-32 32v256a32 32 0 0 0 64 0V288a32 32 0 0 0-32-32z"/>
-                <path d="M352 576h320a32 32 0 0 0 0-64H352a32 32 0 0 0 0 64z"/>
-                <path d="M512 704m-32 0a32 32 0 1 0 64 0 32 32 0 1 0-64 0Z"/>
-                <path d="M422.4 704l-94.72-143.36c-15.36-23.04-46.08-30.72-71.68-15.36l-15.36 15.36-130.56 204.8c-12.8 25.6-7.68 56.32 17.92 71.68h256c28.16 0 51.2-23.04 51.2-51.2 0-7.68-2.56-15.36-5.12-23.04l-33.28-66.56z" fill="#A5C8F4" opacity="0.6"/>
-            </svg>
+            <svg class="icon" viewBox="0 0 1024 1024"><path d="M512 64a448 448 0 1 1-448 448 448 448 0 0 1 448-448m0-64a512 512 0 1 0 512 512 512 512 0 0 0-512-512z"/><path d="M512 256a32 32 0 0 0-32 32v256a32 32 0 0 0 64 0V288a32 32 0 0 0-32-32z"/><path d="M352 576h320a32 32 0 0 0 0-64H352a32 32 0 0 0 0 64z"/><path d="M512 704m-32 0a32 32 0 1 0 64 0 32 32 0 1 0-64 0Z"/><path d="M422.4 704l-94.72-143.36c-15.36-23.04-46.08-30.72-71.68-15.36l-15.36 15.36-130.56 204.8c-12.8 25.6-7.68 56.32 17.92 71.68h256c28.16 0 51.2-23.04 51.2-51.2 0-7.68-2.56-15.36-5.12-23.04l-33.28-66.56z" fill="#A5C8F4" opacity="0.6"/></svg>
             <div class="upload-text">点击、拖拽或粘贴(Ctrl+V)图片到此处</div>
             <span class="btn">选择图片</span>
             <input type="file" id="fileInput" accept="image/jpeg, image/png, image/gif">
         </div>
-
         <div class="status-msg" id="statusMsg"></div>
-
         <div class="result-area" id="resultArea">
             <div class="url-box">
                 <input type="text" class="url-input" id="urlInput" readonly>
@@ -170,7 +55,6 @@
             <div style="margin-top:10px; font-size: 12px; color: #718096; cursor: pointer;" onclick="location.reload()">重新上传</div>
         </div>
     </div>
-
     <script>
         const dropZone = document.getElementById('dropZone');
         const fileInput = document.getElementById('fileInput');
@@ -179,105 +63,58 @@
         const urlInput = document.getElementById('urlInput');
         const copyBtn = document.getElementById('copyBtn');
 
-        // 上传配置 (如果你的服务器有CORS限制，这里可能需要反代地址)
-        // 默认尝试直连 telegra.ph，如果本地运行有跨域问题，建议使用支持CORS的Cloudflare Worker反代
-        const UPLOAD_API = 'https://telegra.ph/upload'; 
+        // ==== 修改重点：指向当前的 Cloudflare Function 路径 ====
+        const UPLOAD_API = '/upload'; 
 
-        // 点击上传
         dropZone.addEventListener('click', () => fileInput.click());
-
-        // 文件选择监听
         fileInput.addEventListener('change', (e) => handleFiles(e.target.files));
-
-        // 拖拽事件处理
-        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
-            dropZone.addEventListener(eventName, preventDefaults, false);
-        });
-
-        function preventDefaults(e) {
-            e.preventDefault();
-            e.stopPropagation();
-        }
-
-        ['dragenter', 'dragover'].forEach(eventName => {
-            dropZone.addEventListener(eventName, () => dropZone.classList.add('dragover'), false);
-        });
-
-        ['dragleave', 'drop'].forEach(eventName => {
-            dropZone.addEventListener(eventName, () => dropZone.classList.remove('dragover'), false);
-        });
-
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(e => dropZone.addEventListener(e, preventDefaults, false));
+        function preventDefaults(e) { e.preventDefault(); e.stopPropagation(); }
+        ['dragenter', 'dragover'].forEach(e => dropZone.addEventListener(e, () => dropZone.classList.add('dragover'), false));
+        ['dragleave', 'drop'].forEach(e => dropZone.addEventListener(e, () => dropZone.classList.remove('dragover'), false));
         dropZone.addEventListener('drop', (e) => handleFiles(e.dataTransfer.files), false);
-
-        // 粘贴事件处理 (Ctrl+V)
         document.addEventListener('paste', (e) => {
             const items = e.clipboardData.items;
             for (let i = 0; i < items.length; i++) {
-                if (items[i].type.indexOf('image') !== -1) {
-                    const blob = items[i].getAsFile();
-                    handleFiles([blob]);
-                    break;
-                }
+                if (items[i].type.indexOf('image') !== -1) { handleFiles([items[i].getAsFile()]); break; }
             }
         });
-
-        // 复制功能
         copyBtn.addEventListener('click', () => {
-            urlInput.select();
-            document.execCommand('copy');
-            const originalText = copyBtn.innerText;
-            copyBtn.innerText = '已复制';
-            setTimeout(() => copyBtn.innerText = originalText, 1500);
+            urlInput.select(); document.execCommand('copy');
+            const t = copyBtn.innerText; copyBtn.innerText = '已复制';
+            setTimeout(() => copyBtn.innerText = t, 1500);
         });
 
         function handleFiles(files) {
             if (files.length === 0) return;
             const file = files[0];
-            
-            // 简单验证
-            if (!file.type.startsWith('image/')) {
-                showStatus('只能上传图片文件', 'error');
-                return;
-            }
-
+            if (!file.type.startsWith('image/')) { showStatus('只能上传图片文件', 'error'); return; }
             uploadFile(file);
         }
 
         function uploadFile(file) {
-            showStatus('<div class="spinner"></div> 正在上传...', 'loading');
+            showStatus('<div class="spinner"></div> 正在上传并同步到Telegram...', 'loading');
             resultArea.classList.remove('show');
-
             const formData = new FormData();
             formData.append('file', file);
 
-            fetch(UPLOAD_API, {
-                method: 'POST',
-                body: formData
-            })
-            .then(response => response.json())
+            fetch(UPLOAD_API, { method: 'POST', body: formData })
+            .then(r => r.json())
             .then(data => {
-                if (Array.isArray(data) && data[0].src) {
-                    const fullUrl = 'https://telegra.ph' + data[0].src;
+                if (data.status === 'success') {
                     showStatus('上传成功！', 'success');
-                    urlInput.value = fullUrl;
+                    urlInput.value = data.url;
                     resultArea.classList.add('show');
                 } else {
-                    throw new Error(data.error || '上传失败，服务器返回异常');
+                    throw new Error(data.message || '上传失败');
                 }
             })
-            .catch(error => {
-                console.error(error);
-                // 提示用户可能存在的跨域问题
-                let msg = '上传出错，请检查网络或CORS设置。';
-                if(location.protocol === 'file:') msg += ' (本地直接打开html通常无法跨域上传，请部署到服务器)';
-                showStatus(msg, 'error');
+            .catch(err => {
+                console.error(err);
+                showStatus('上传失败: ' + err.message, 'error');
             });
         }
-
-        function showStatus(html, type) {
-            statusMsg.innerHTML = html;
-            statusMsg.className = 'status-msg ' + type;
-        }
+        function showStatus(h, t) { statusMsg.innerHTML = h; statusMsg.className = 'status-msg ' + t; }
     </script>
 </body>
 </html>
