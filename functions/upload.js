@@ -1,73 +1,111 @@
 // functions/upload.js
 
 export async function onRequestPost(context) {
-  const { request, env } = context;
+    const { request, env } = context;
 
-  try {
-    // 1. 获取前端传来的文件
-    const formData = await request.formData();
-    const file = formData.get('file');
+    try {
+        const formData = await request.formData();
+        const uploadFile = formData.get('file');
 
-    if (!file) {
-      return new Response(JSON.stringify({ status: 'error', message: 'No file found' }), { headers: { 'Content-Type': 'application/json' } });
+        if (!uploadFile) {
+            throw new Error('No file uploaded');
+        }
+
+        const fileName = uploadFile.name || "file";
+        const fileExtension = fileName.split('.').pop().toLowerCase() || "jpg";
+
+        // 构造发送给 Telegram Bot 的请求
+        const telegramFormData = new FormData();
+        telegramFormData.append("chat_id", env.TG_Chat_ID);
+
+        // 根据文件类型选择 API
+        let apiEndpoint = 'sendDocument'; // 默认 fallback
+        if (uploadFile.type.startsWith('image/')) {
+            telegramFormData.append("photo", uploadFile);
+            apiEndpoint = 'sendPhoto';
+        } else if (uploadFile.type.startsWith('video/')) {
+            telegramFormData.append("video", uploadFile);
+            apiEndpoint = 'sendVideo';
+        } else if (uploadFile.type.startsWith('audio/')) {
+            telegramFormData.append("audio", uploadFile);
+            apiEndpoint = 'sendAudio';
+        } else {
+            telegramFormData.append("document", uploadFile);
+        }
+
+        // 发送给 Telegram
+        const result = await sendToTelegram(telegramFormData, apiEndpoint, env);
+
+        if (!result.success) {
+            throw new Error(result.error);
+        }
+
+        // 获取 File ID
+        const fileId = getFileId(result.data);
+        if (!fileId) {
+            throw new Error('Failed to get file ID from Telegram response');
+        }
+
+        // === 关键：写入 Cloudflare KV 数据库 ===
+        // 如果你没有绑定 KV，这一步会跳过，但建议绑定以支持文件名记录
+        if (env.img_url) {
+            await env.img_url.put(`${fileId}.${fileExtension}`, "", {
+                metadata: {
+                    TimeStamp: Date.now(),
+                    fileName: fileName,
+                    fileSize: uploadFile.size,
+                    fileType: uploadFile.type
+                }
+            });
+        }
+
+        // 返回前端需要的格式
+        // 这里的路径 /file/xxx 对应我们将要创建的下载函数
+        return new Response(
+            JSON.stringify([{ 'src': `/file/${fileId}.${fileExtension}` }]),
+            {
+                status: 200,
+                headers: { 'Content-Type': 'application/json' }
+            }
+        );
+
+    } catch (error) {
+        return new Response(
+            JSON.stringify({ error: error.message }),
+            { status: 500, headers: { 'Content-Type': 'application/json' } }
+        );
     }
-
-    // 2. 构造请求转发给 Telegraph
-    // Telegraph 需要 multipart/form-data，我们直接构造一个新的 FormData
-    const telegraphData = new FormData();
-    telegraphData.append('file', file);
-
-    const telegraphRes = await fetch('https://telegra.ph/upload', {
-      method: 'POST',
-      body: telegraphData
-    });
-
-    const telegraphResult = await telegraphRes.json();
-
-    // 检查 Telegraph 是否返回成功
-    if (!Array.isArray(telegraphResult) || !telegraphResult[0].src) {
-      return new Response(JSON.stringify({ status: 'error', message: 'Telegraph upload failed', details: telegraphResult }), { headers: { 'Content-Type': 'application/json' } });
-    }
-
-    const imageUrl = 'https://telegra.ph' + telegraphResult[0].src;
-
-    // 3. (可选) 推送到 Telegram Bot
-    // 读取你在 CF 后台设置的环境变量
-    if (env.TG_Bot_Token && env.TG_Chat_ID) {
-        await sendToTelegram(env.TG_Bot_Token, env.TG_Chat_ID, imageUrl);
-    }
-
-    // 4. 返回成功信息给前端
-    return new Response(JSON.stringify({
-      status: 'success',
-      url: imageUrl
-    }), {
-      headers: { 'Content-Type': 'application/json' }
-    });
-
-  } catch (err) {
-    return new Response(JSON.stringify({ status: 'error', message: err.message }), { headers: { 'Content-Type': 'application/json' } });
-  }
 }
 
-// 辅助函数：发送通知到 Telegram
-async function sendToTelegram(token, chatId, imageUrl) {
-    const text = `New Image Uploaded:\n${imageUrl}`;
-    // 使用 sendMessage 发送文本链接，或者用 sendPhoto 发送图片
-    const tgUrl = `https://api.telegram.org/bot${token}/sendMessage`;
+// 辅助函数：提取 File ID
+function getFileId(response) {
+    if (!response.ok || !response.result) return null;
+    const res = response.result;
     
+    // 图片通常有多个尺寸，取最大的那个
+    if (res.photo) {
+        return res.photo[res.photo.length - 1].file_id;
+    }
+    if (res.document) return res.document.file_id;
+    if (res.video) return res.video.file_id;
+    if (res.audio) return res.audio.file_id;
+    return null;
+}
+
+// 辅助函数：发送到 TG
+async function sendToTelegram(formData, apiEndpoint, env) {
+    const apiUrl = `https://api.telegram.org/bot${env.TG_Bot_Token}/${apiEndpoint}`;
     try {
-        await fetch(tgUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                chat_id: chatId,
-                text: text,
-                disable_web_page_preview: false // 让 TG 自动生成预览
-            })
+        const response = await fetch(apiUrl, {
+            method: "POST",
+            body: formData
         });
+        const data = await response.json();
+        if (data.ok) {
+            return { success: true, data: data };
+        }
+        return { success: false, error: data.description };
     } catch (e) {
-        console.error("Telegram notification failed:", e);
-        // 通知失败不影响上传成功
+        return { success: false, error: e.message };
     }
 }
