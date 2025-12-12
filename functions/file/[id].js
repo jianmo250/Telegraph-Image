@@ -2,17 +2,17 @@ export async function onRequestGet(context) {
     const { params, env } = context;
     const fileName = params.id;
 
-    // 简单的后缀名分离
+    // 分离文件ID和后缀
     const lastDotIndex = fileName.lastIndexOf('.');
     const fileId = lastDotIndex !== -1 ? fileName.substring(0, lastDotIndex) : fileName;
-    const ext = lastDotIndex !== -1 ? fileName.substring(lastDotIndex + 1).toLowerCase() : '';
+    const ext = lastDotIndex !== -1 ? fileName.substring(lastDotIndex + 1).toLowerCase() : 'jpg';
 
     if (!env.TG_Bot_Token) {
         return new Response('Missing TG_Bot_Token', { status: 500 });
     }
 
     try {
-        // 1. 获取文件路径
+        // 1. 拿到 Telegram 的真实下载路径
         const getFileUrl = `https://api.telegram.org/bot${env.TG_Bot_Token}/getFile?file_id=${fileId}`;
         const fileRes = await fetch(getFileUrl);
         const fileData = await fileRes.json();
@@ -24,27 +24,36 @@ export async function onRequestGet(context) {
         const filePath = fileData.result.file_path;
         const downloadUrl = `https://api.telegram.org/file/bot${env.TG_Bot_Token}/${filePath}`;
 
-        // 2. 拉取文件流
+        // 2. 获取文件流
         const imageRes = await fetch(downloadUrl);
 
-        // 3. 重构响应头 (关键步骤)
-        const headers = new Headers(imageRes.headers);
+        // 3. 重写响应头 (关键步骤)
+        // 我们创建一个全新的 Header，只保留必要的，去除 TG 原始的干扰信息
+        const newHeaders = new Headers();
         
-        // 强制浏览器缓存一年，减少 API 调用
-        headers.set('Cache-Control', 'public, max-age=31536000');
+        // 允许跨域 (解决 Canvas 引用等问题)
+        newHeaders.set('Access-Control-Allow-Origin', '*');
         
-        // 设置 Content-Disposition 为 inline，强制浏览器预览而不是下载
-        headers.set('Content-Disposition', `inline; filename="${fileName}"`);
+        // 强缓存 (原图很大，缓存很重要)
+        newHeaders.set('Cache-Control', 'public, max-age=31536000');
+        
+        // 强制浏览器"内联"显示，而不是下载
+        // 这里的 filename 设置很重要，浏览器会根据它判断类型
+        newHeaders.set('Content-Disposition', `inline; filename="image.${ext}"`);
 
-        // 根据后缀强制设置 Content-Type
+        // 强制设置正确的 Content-Type
+        // 如果这里不设置正确，浏览器会把它当成未知文件拒绝渲染
         const mimeType = getMimeType(ext);
-        if (mimeType) {
-            headers.set('Content-Type', mimeType);
+        newHeaders.set('Content-Type', mimeType);
+
+        // 透传 Content-Length (如果有)
+        if (imageRes.headers.get('Content-Length')) {
+            newHeaders.set('Content-Length', imageRes.headers.get('Content-Length'));
         }
 
         return new Response(imageRes.body, {
             status: imageRes.status,
-            headers: headers
+            headers: newHeaders
         });
 
     } catch (err) {
@@ -52,7 +61,7 @@ export async function onRequestGet(context) {
     }
 }
 
-// 简单的 MIME 类型映射
+// 补全常见 MIME 类型
 function getMimeType(ext) {
     const map = {
         'jpg': 'image/jpeg',
@@ -61,9 +70,13 @@ function getMimeType(ext) {
         'gif': 'image/gif',
         'webp': 'image/webp',
         'svg': 'image/svg+xml',
+        'bmp': 'image/bmp',
+        'ico': 'image/x-icon',
         'mp4': 'video/mp4',
         'webm': 'video/webm',
-        'mp3': 'audio/mpeg'
+        'mp3': 'audio/mpeg',
+        'json': 'application/json'
     };
-    return map[ext] || null; // 如果未知，留空让浏览器自己猜或沿用上游
+    // 默认 fallback 到 jpeg，大多数情况下浏览器能自动纠错
+    return map[ext] || 'image/jpeg'; 
 }
